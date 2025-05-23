@@ -1,1 +1,279 @@
-.
+<div class="container">
+  <!-- Écran d'accueil -->
+  <div class="screen active" id="welcomeScreen">
+    <h1 class="text-center mb-8">Jeu de Mots</h1>
+    <div class="input-group">
+      <label for="gameCode">Code de partie :</label>
+      <input type="text" id="gameCode" placeholder="Entrez un code de partie">
+    </div>
+    <div class="input-group">
+      <label for="playerName">Votre nom :</label>
+      <input type="text" id="playerName" placeholder="Entrez votre nom">
+    </div>
+    <button id="joinGameBtn" phx-click="join_game">Rejoindre la partie</button>
+  </div>
+
+  <!-- Écran de saisie du mot -->
+  <div class="screen" id="wordScreen">
+    <div class="player-info">
+      <h2>Joueur : <span id="playerNameDisplay"></span></h2>
+    </div>
+    <div class="input-group">
+      <label for="wordInput">Entrez votre mot :</label>
+      <input type="text" id="wordInput" placeholder="Votre mot secret">
+    </div>
+    <button id="submitWordBtn" phx-click="submit_word">Valider le mot</button>
+  </div>
+
+  <!-- Écran de jeu -->
+  <div class="screen" id="gameScreen">
+    <div class="player-info">
+      <h2>Joueurs :</h2>
+      <p><span id="player1Display"></span> vs <span id="player2Display"></span></p>
+    </div>
+    <div class="turn-indicator" id="turnIndicator"></div>
+    <div class="word-display" id="wordDisplay"></div>
+    <div class="keyboard" id="keyboard">
+      <%= for letter <- String.graphemes("abcdefghijklmnopqrstuvwxyz") do %>
+        <button class="key" phx-click="guess_letter" phx-value-letter={letter}>
+          <%= letter %>
+        </button>
+      <% end %>
+    </div>
+  </div>
+
+  <!-- Écran de victoire -->
+  <div class="screen" id="winScreen">
+    <div class="win-message">
+      <h2>Félicitations! 🎉</h2>
+      <p id="winnerDisplay"></p>
+    </div>
+    <button phx-click="save_screenshot">Sauvegarder l'image</button>
+    <button phx-click="reset_game">Nouvelle partie</button>
+  </div>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Arial', sans-serif;
+    }
+
+    body {
+      background: #f0f2f5;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .container {
+      background: white;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      width: 90%;
+      max-width: 600px;
+    }
+
+    .screen {
+      display: none;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    .input-group {
+      margin: 1rem 0;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 0.8rem;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      font-size: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 0.8rem 1.5rem;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1rem;
+      margin: 0.5rem 0;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #45a049;
+    }
+
+    .keyboard {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .key {
+      background: #e0e0e0;
+      padding: 0.8rem;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .key.used {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .key.correct {
+      background: #4CAF50;
+      color: white;
+    }
+
+    .word-display {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      margin: 1rem 0;
+    }
+
+    .letter-box {
+      width: 40px;
+      height: 40px;
+      border: 2px solid #ddd;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      text-transform: uppercase;
+    }
+
+    .win-message {
+      text-align: center;
+      font-size: 1.5rem;
+      color: #4CAF50;
+      margin: 1rem 0;
+    }
+
+    .player-info {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    .turn-indicator {
+      text-align: center;
+      margin: 1rem 0;
+      font-weight: bold;
+      color: #2196F3;
+    }
+  </style>
+
+  <script>
+    window.addEventListener("phx:update", () => {
+      updateScreens();
+      updateGameState();
+    });
+
+    function updateScreens() {
+      const currentScreen = document.querySelector(".screen.active");
+      if (currentScreen) {
+        currentScreen.classList.remove("active");
+      }
+      const gameState = window.gameState;
+      if (gameState) {
+        const screenToShow = determineScreenToShow(gameState);
+        document.getElementById(screenToShow).classList.add("active");
+      }
+    }
+
+    function determineScreenToShow(gameState) {
+      if (!gameState.current_player) return "welcomeScreen";
+      if (!gameState.words || Object.keys(gameState.words).length < 2) return "wordScreen";
+      if (gameState.winner) return "winScreen";
+      return "gameScreen";
+    }
+
+    function updateGameState() {
+      const gameState = window.gameState;
+      if (!gameState) return;
+
+      // Update player displays
+      if (gameState.current_player) {
+        document.getElementById("playerNameDisplay").textContent = gameState.current_player;
+      }
+      if (gameState.players) {
+        const players = Object.keys(gameState.players);
+        document.getElementById("player1Display").textContent = players[0] || "";
+        document.getElementById("player2Display").textContent = players[1] || "";
+      }
+
+      // Update turn indicator
+      if (gameState.current_turn) {
+        document.getElementById("turnIndicator").textContent = `Tour de ${gameState.current_turn}`;
+      }
+
+      // Update word display
+      if (gameState.words && gameState.current_player) {
+        updateWordDisplay(gameState);
+      }
+
+      // Update keyboard
+      if (gameState.guessed_letters) {
+        updateKeyboard(gameState);
+      }
+
+      // Update winner display
+      if (gameState.winner) {
+        document.getElementById("winnerDisplay").textContent = 
+          `${gameState.winner} a gagné la partie!`;
+      }
+    }
+
+    function updateWordDisplay(gameState) {
+      const wordDisplay = document.getElementById("wordDisplay");
+      const opponent = Object.keys(gameState.players)
+        .find(p => p !== gameState.current_player);
+      const wordToGuess = gameState.words[opponent] || "";
+      
+      wordDisplay.innerHTML = "";
+      for (const letter of wordToGuess) {
+        const box = document.createElement("div");
+        box.className = "letter-box";
+        if (gameState.guessed_letters[gameState.current_player]
+            .includes(letter)) {
+          box.textContent = letter;
+        }
+        wordDisplay.appendChild(box);
+      }
+    }
+
+    function updateKeyboard(gameState) {
+      const keyboard = document.querySelector(".keyboard");
+      const currentPlayer = gameState.current_player;
+      const opponent = Object.keys(gameState.players)
+        .find(p => p !== currentPlayer);
+      
+      keyboard.querySelectorAll(".key").forEach(key => {
+        const letter = key.textContent;
+        if (gameState.guessed_letters[currentPlayer]
+            .includes(letter)) {
+          key.classList.add("used");
+          if (gameState.words[opponent].includes(letter)) {
+            key.classList.add("correct");
+          }
+        } else {
+          key.classList.remove("used", "correct");
+        }
+      });
+    }
+  </script>
+</div>
