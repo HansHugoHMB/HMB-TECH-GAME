@@ -1,7 +1,6 @@
-defmodule WordGameWeb.PageController do
-  use WordGameWeb, :controller
 
-  def index(conn, _params) do
-    render(conn, :index)
-  end
+defmodule WordGameWeb.PageHTML do
+  use WordGameWeb, :html
+
+  embed_templates "page_html/*"
 end
